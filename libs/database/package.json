@@ -1,0 +1,20 @@
+{
+  "name": "@cs-ai/database",
+  "version": "1.0.0",
+  "description": "Database layer (Drizzle ORM) for CS AI SaaS backend",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "typescript": "^5.9.3"
+  }
+}

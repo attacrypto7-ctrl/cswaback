@@ -1,0 +1,26 @@
+{
+  "name": "cs-ai-worker",
+  "version": "1.0.0",
+  "description": "Worker service (BullMQ) — balas chat via Groq+RAG, balas iklan via template, indexing dokumen",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "dev": "tsx --tsconfig tsconfig.json src/main.ts"
+  },
+  "dependencies": {
+    "@cs-ai/database": "file:../../libs/database",
+    "@cs-ai/groq-client": "file:../../libs/groq-client",
+    "@cs-ai/shared-types": "file:../../libs/shared-types",
+    "bullmq": "^6.3.4",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^6.0.0",
+    "openai": "^7.15.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}

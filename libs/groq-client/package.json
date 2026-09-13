@@ -1,0 +1,19 @@
+{
+  "name": "@cs-ai/groq-client",
+  "version": "1.0.0",
+  "description": "Groq API wrapper for CS AI SaaS backend",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "openai": "^7.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "typescript": "^5.9.3"
+  }
+}

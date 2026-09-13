@@ -1,0 +1,36 @@
+{
+  "name": "cs-ai-saas-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend SaaS CS AI WhatsApp — 3 service terpisah (api, worker, wa-gateway)",
+  "workspaces": [
+    "libs/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:libs": "npm run build -w @cs-ai/shared-types && npm run build -w @cs-ai/groq-client && npm run build -w @cs-ai/database",
+    "build": "npm run build:libs && npm run build -w cs-ai-api && npm run build -w cs-ai-worker && npm run build -w cs-ai-wa-gateway",
+    "dev:api": "npm run dev -w cs-ai-api",
+    "dev:worker": "npm run dev -w cs-ai-worker",
+    "dev:wa": "npm run dev -w cs-ai-wa-gateway",
+    "dev": "concurrently -k -n api,worker,wa \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:wa\"",
+    "start:api": "npm run start -w cs-ai-api",
+    "start:worker": "npm run start -w cs-ai-worker",
+    "start:wa": "npm run start -w cs-ai-wa-gateway",
+    "lint": "echo \"Lint not configured yet\"",
+    "typecheck": "npm run build:libs && ./node_modules/.bin/tsc --noEmit -p apps/api/tsconfig.json && ./node_modules/.bin/tsc --noEmit -p apps/worker/tsconfig.json && ./node_modules/.bin/tsc --noEmit -p apps/wa-gateway/tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "ts-node": "^10.9.2",
+    "concurrently": "^10.0.5",
+    "@types/node": "^26.5.1",
+    "tsx": "^4.23.13"
+  },
+  "allowScripts": {
+    "whatsapp-rust-bridge@0.5.4": true,
+    "msgpackr-extract@3.0.4": true,
+    "protobufjs@7.6.6": true,
+    "esbuild@0.28.2": true
+  }
+}

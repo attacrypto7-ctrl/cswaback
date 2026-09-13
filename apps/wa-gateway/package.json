@@ -1,0 +1,25 @@
+{
+  "name": "cs-ai-wa-gateway",
+  "version": "1.0.0",
+  "description": "WA Gateway service (Baileys) — kelola koneksi WhatsApp multi-tenant, QR, kirim/terima pesan",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "dev": "tsx --tsconfig tsconfig.json src/main.ts"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "bullmq": "^6.3.4",
+    "express": "^5.2.1",
+    "ioredis": "^6.0.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.5.1",
+    "@types/qrcode": "^1.5.6",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}
