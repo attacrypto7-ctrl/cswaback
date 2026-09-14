@@ -1,7 +1,7 @@
 import express from "express";
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
-import { connect, disconnect, getQr, sendText } from "./sessions";
+import { Redis as IORedis } from "ioredis";
+import { connect, disconnect, getQr, sendText } from "./sessions.js";
 
 // =====================================================================
 // wa-gateway — service Baileys terpisah (PLAN.md bagian 3).

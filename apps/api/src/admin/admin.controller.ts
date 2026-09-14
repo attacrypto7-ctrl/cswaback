@@ -1,15 +1,15 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Body,
   Param,
   UseGuards,
   Query,
-  NotFoundException,
 } from "@nestjs/common";
 import { AdminService } from "./admin.service";
-import { Public } from "../common/decorators/public.decorator";
+import { AdminGuard } from "../common/guards/admin.guard";
 
 /**
  * AdminController — endpoint API untuk panel admin.
@@ -18,6 +18,7 @@ import { Public } from "../common/decorators/public.decorator";
  * Perlu role "admin" (JWT). Semua endpoint kecuali @Public
  * dilindungi JwtAuthGuard + role check.
  */
+@UseGuards(AdminGuard)
 @Controller("admin")
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -47,6 +48,18 @@ export class AdminController {
   }
 
   // ---- Licenses ----
+  @Post("licenses")
+  createLicense(
+    @Body() body: { tenantId: string; plan: string; kuotaChat: number; berakhir: string },
+  ) {
+    return this.adminService.createLicense(body);
+  }
+
+  @Post("licenses/:id/revoke")
+  revokeLicense(@Param("id") id: string) {
+    return this.adminService.revokeLicense(id);
+  }
+
   @Get("licenses")
   getAllLicenses(@Query("tenantId") tenantId?: string) {
     return this.adminService.getAllLicenses(tenantId);

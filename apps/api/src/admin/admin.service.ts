@@ -72,6 +72,53 @@ export class AdminService {
   }
 
   // ---- Licenses ----
+  async createLicense(data: { tenantId: string; plan: string; kuotaChat: number; berakhir: string }) {
+    const tenant = await this.db.db.query.tenants.findFirst({
+      where: eq(schema.tenants.id, data.tenantId),
+    });
+    if (!tenant) throw new NotFoundException(`Tenant ${data.tenantId} tidak ditemukan`);
+
+    const kode = generateLicenseCode();
+    const [row] = await this.db.db
+      .insert(schema.licenses)
+      .values({
+        kode,
+        tenantId: data.tenantId,
+        plan: data.plan as any,
+        status: "nonaktif",
+        berakhir: new Date(data.berakhir),
+        kuotaChat: Number(data.kuotaChat) || 3000,
+      })
+      .returning();
+
+    await this.db.db.insert(schema.auditLog).values({
+      tenantId: data.tenantId,
+      aktor: "admin",
+      aksi: "Buat lisensi",
+      target: kode,
+    });
+    return this.formatLicense({ ...row, tenants: tenant });
+  }
+
+  async revokeLicense(id: string) {
+    const license = await this.db.db.query.licenses.findFirst({
+      where: eq(schema.licenses.id, id),
+    });
+    if (!license) throw new NotFoundException(`License ${id} tidak ditemukan`);
+    const [row] = await this.db.db
+      .update(schema.licenses)
+      .set({ status: "revoked" })
+      .where(eq(schema.licenses.id, id))
+      .returning();
+    await this.db.db.insert(schema.auditLog).values({
+      tenantId: row.tenantId,
+      aktor: "admin",
+      aksi: "Cabut lisensi",
+      target: row.kode,
+    });
+    return this.formatLicense(row);
+  }
+
   async getAllLicenses(tenantId?: string) {
     const conditions: any[] = [];
     if (tenantId) conditions.push(eq(schema.licenses.tenantId, tenantId));
@@ -142,8 +189,7 @@ export class AdminService {
     };
   }
 
-  private formatLicense(l: any) {
-    return {
+  private formatLicense(l: any) {    return {
       id: l.id,
       kode: l.kode,
       tenantId: l.tenantId,
@@ -155,4 +201,12 @@ export class AdminService {
       kuotaChat: l.kuotaChat,
     };
   }
+}
+
+/** Kode lisensi: XXXX-0000-2027-XXXX (huruf besar + angka, tanpa karakter ambigu). */
+function generateLicenseCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const seg = (n: number) =>
+    Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `${seg(4)}-${seg(4)}-${new Date().getFullYear() + 1}-${seg(4)}`;
 }

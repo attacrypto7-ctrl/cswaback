@@ -13,12 +13,18 @@ Libs bersama: `libs/database` (Drizzle), `libs/groq-client` (mapping hemat/seimb
 ## Jalankan lokal
 
 ```bash
-npm install
+npm install                 # npm workspaces (node_modules/@cs-ai/* jadi symlink)
 # isi .env (lihat .env.example) — butuh Postgres + Redis lokal
 psql $DATABASE_URL -f schema.sql
-psql $DATABASE_URL -f seed.sql
-npm run dev   # api :3000, worker, wa-gateway :3002 sekaligus
+psql $DATABASE_URL -f seed.sql   # opsional: admin awal
+npm run dev   # api :3000 (ts-node), worker (tsx), wa-gateway :3002 (build+node ESM)
 ```
+
+Catatan runtime:
+- `api` (NestJS) dijalankan via `ts-node` — `tsx`/esbuild tidak memancarkan
+  metadata dekorator sehingga dependency injection rusak.
+- `wa-gateway` dikompilasi ke ESM murni (`type: module`) karena Baileys v7
+  ESM-only; dependensi `whatsapp-rust-bridge` tidak punya kondisi `require`.
 
 ## Endpoint utama (prefix `/api`)
 
