@@ -29,19 +29,31 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    // BullMQ v6: connection harus instance IORedis / ConnectionOptions (bukan string URL)
-    this.connection = new IORedis(this.redisUrl, { maxRetriesPerRequest: null });
-    const opts = { connection: this.connection };
+    try {
+      this.connection = new IORedis(this.redisUrl, {
+        maxRetriesPerRequest: null,
+        enableOfflineQueue: true,
+        retryStrategy: (times) => Math.min(times * 200, 2000),
+        lazyConnect: true,
+      });
+      this.connection.on("error", (err) => this.logger.warn(`Redis error (will retry): ${err.message}`));
+      this.connection.on("close", () => this.logger.warn("Redis connection closed — retrying"));
+      const opts = { connection: this.connection };
 
-    this.chatQueue = new Queue("chat", opts);
-    this.adQueue = new Queue("ad", opts);
-    this.indexQueue = new Queue("index", opts);
-    this.outgoingQueue = new Queue("outgoing", opts);
+      this.chatQueue = new Queue("chat", opts);
+      this.adQueue = new Queue("ad", opts);
+      this.indexQueue = new Queue("index", opts);
+      this.outgoingQueue = new Queue("outgoing", opts);
+      this.scheduler = new QueueEvents("csai-scheduler", opts);
+      this.scheduler.on("failed", ({ jobId }) => this.logger.warn(`Queue job failed ${jobId}`));
 
-    // QueueEvents untuk menangani peristiwa sistem (retry, stalled, dsb)
-    this.scheduler = new QueueEvents("csai-scheduler", opts);
-
-    this.logger.log("Redis/BullMQ queues initialized");
+      this.logger.log("Redis/BullMQ queues initialized");
+    } catch (err) {
+      const isDev = (process.env.NODE_ENV || "development") !== "production";
+      this.logger.error("Redis init failed", err instanceof Error ? err.stack : String(err));
+      if (!isDev) throw err;
+      this.logger.warn("Dev mode — Redis unavailable, queues disabled gracefully");
+    }
   }
 
   async onModuleDestroy() {

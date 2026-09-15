@@ -14,19 +14,21 @@ export class DatabaseService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    const databaseUrl = this.configService.get<string>("databaseUrl");
+    const defaultUrl = "postgresql://postgres:postgres@localhost:5432/chatbot_db?schema=public";
+    let databaseUrl = this.configService.get<string>("databaseUrl") || process.env.DATABASE_URL || defaultUrl;
 
-    if (!databaseUrl) {
-      this.logger.error("DATABASE_URL environment variable is not set!");
-      throw new Error("DATABASE_URL is required");
+    if (!this.configService.get<string>("databaseUrl") && !process.env.DATABASE_URL) {
+      this.logger.warn(`DATABASE_URL not set — using default fallback: ${defaultUrl}`);
     }
 
     try {
       initDb(databaseUrl);
       this.logger.log("Database connection established");
     } catch (err) {
+      const isDev = (process.env.NODE_ENV || "development") !== "production";
       this.logger.error("Failed to connect to database", err instanceof Error ? err.stack : String(err));
-      throw err;
+      if (!isDev) throw err;
+      this.logger.warn("Running in dev mode — continuing without DB (API will return errors on DB queries)");
     }
   }
 

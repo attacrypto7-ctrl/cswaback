@@ -117,6 +117,9 @@ export class AuthService {
   /**
    * Validasi license code dan update tenant
    */
+  /**
+   * Validasi license code dan update tenant
+   */
   async activateLicense(tenantId: string, kode: string): Promise<boolean> {
     const license = await this.db.db.query.licenses.findFirst({
       where: eq(schema.licenses.kode, kode.toUpperCase()),
@@ -155,5 +158,95 @@ export class AuthService {
     });
 
     return true;
+  }
+
+  async handleGoogleCallback(code: string): Promise<{ token: string; user: { name: string; email: string; picture: string } }> {
+    const clientId = this.configService.get<string>("googleClientId") || process.env.GOOGLE_CLIENT_ID || "";
+    const clientSecret = this.configService.get<string>("googleClientSecret") || process.env.GOOGLE_CLIENT_SECRET || "";
+    const redirectUri =
+      this.configService.get<string>("googleRedirectUri") ||
+      process.env.GOOGLE_REDIRECT_URI ||
+      "http://localhost:3000/api/auth/google/callback";
+
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      this.logger.error(`Google token exchange failed: ${errText}`);
+      throw new UnauthorizedException("Gagal menukar kode otorisasi dengan Google");
+    }
+
+    const tokenData = (await tokenRes.json()) as { access_token: string };
+    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    if (!userRes.ok) {
+      throw new UnauthorizedException("Gagal mengambil data akun Google");
+    }
+
+    const googleProfile = (await userRes.json()) as {
+      id: string;
+      email: string;
+      name?: string;
+      picture?: string;
+    };
+
+    const email = googleProfile.email;
+    const name = googleProfile.name || email.split("@")[0];
+    const picture =
+      googleProfile.picture ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=10b981&color=fff&size=200`;
+
+    // Cek tenant atau admin
+    let tenant = await this.db.db.query.tenants.findFirst({
+      where: eq(schema.tenants.email, email),
+    });
+
+    if (!tenant) {
+      // Auto-register tenant baru jika belum ada
+      const [newTenant] = await this.db.db
+        .insert(schema.tenants)
+        .values({
+          nama: name,
+          industri: "Lainnya",
+          email: email,
+          plan: "Starter",
+          status: "aktif",
+        })
+        .returning();
+      tenant = newTenant;
+
+      await this.db.db.insert(schema.botSettings).values({
+        tenantId: tenant.id,
+      });
+    }
+
+    const payload: JwtPayload = {
+      sub: tenant.id,
+      email: tenant.email,
+      role: "tenant",
+      nama: tenant.nama,
+    };
+
+    const jwtToken = this.jwtService.sign(payload);
+    return {
+      token: jwtToken,
+      user: {
+        name,
+        email,
+        picture,
+      },
+    };
   }
 }

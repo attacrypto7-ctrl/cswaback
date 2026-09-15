@@ -13,7 +13,7 @@
     "dev:api": "npm run dev -w cs-ai-api",
     "dev:worker": "npm run dev -w cs-ai-worker",
     "dev:wa": "npm run dev -w cs-ai-wa-gateway",
-    "dev": "concurrently -k -n api,worker,wa \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:wa\"",
+    "dev": "npm run build:libs && concurrently -k -n api,worker,wa \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:wa\"",
     "start:api": "npm run start -w cs-ai-api",
     "start:worker": "npm run start -w cs-ai-worker",
     "start:wa": "npm run start -w cs-ai-wa-gateway",
@@ -21,16 +21,19 @@
     "typecheck": "npm run build:libs && ./node_modules/.bin/tsc --noEmit -p apps/api/tsconfig.json && ./node_modules/.bin/tsc --noEmit -p apps/worker/tsconfig.json && ./node_modules/.bin/tsc --noEmit -p apps/wa-gateway/tsconfig.json"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "ts-node": "^10.9.2",
-    "concurrently": "^10.0.5",
     "@types/node": "^26.5.1",
-    "tsx": "^4.23.13"
+    "concurrently": "^10.0.5",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
   },
   "allowScripts": {
     "whatsapp-rust-bridge@0.5.4": true,
     "msgpackr-extract@3.0.4": true,
     "protobufjs@7.6.6": true,
     "esbuild@0.28.2": true
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.13.5"
   }
 }

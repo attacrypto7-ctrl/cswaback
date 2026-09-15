@@ -17,7 +17,14 @@ async function main() {
   initWorkerDb();
 
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-  const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+  const connection = new IORedis(redisUrl, {
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: true,
+    retryStrategy: (times) => Math.min(times * 200, 2000),
+    lazyConnect: true,
+  });
+  connection.on("error", (err) => console.warn(`[worker] redis error (retry): ${err.message}`));
+  connection.on("close", () => console.warn("[worker] redis closed — retrying"));
 
   const commonOpts = { connection, concurrency: 5 };
 

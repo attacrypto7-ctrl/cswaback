@@ -3,9 +3,19 @@ import { GroqClient } from "@cs-ai/groq-client";
 
 // Klien DB singleton untuk worker
 export function initWorkerDb(): void {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL wajib diisi untuk worker");
-  initDb(url);
+  const defaultUrl = "postgresql://postgres:postgres@localhost:5432/chatbot_db?schema=public";
+  const url = process.env.DATABASE_URL || defaultUrl;
+  if (!process.env.DATABASE_URL) {
+    console.warn(`[worker] DATABASE_URL not set — using fallback ${defaultUrl}`);
+  }
+  try {
+    initDb(url);
+  } catch (err) {
+    const isDev = (process.env.NODE_ENV || "development") !== "production";
+    console.error("[worker] DB init failed:", err instanceof Error ? err.message : String(err));
+    if (!isDev) throw err;
+    console.warn("[worker] dev mode — continuing without DB");
+  }
 }
 
 export function db() {
