@@ -23,21 +23,66 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   private redisUrl: string;
   private connection!: IORedis;
+  private lastRedisWarn = 0;
 
   constructor(private configService: ConfigService) {
     this.redisUrl = configService.get<string>("redisUrl") || "redis://localhost:6379";
   }
 
+  private isSilentRedisError(err: unknown): boolean {
+    const m = err instanceof Error ? err.message : String(err);
+    const c = (err as NodeJS.ErrnoException)?.code ?? "";
+    const n = (err as any)?.name ?? "";
+    return (
+      n === "AggregateError" ||
+      c === "ECONNREFUSED" ||
+      c === "ECONNRESET" ||
+      m.includes("ECONNREFUSED") ||
+      m.includes("ECONNRESET") ||
+      m.includes("closed") ||
+      m.includes("Connection is closed")
+    );
+  }
+
+  private throttledWarn(msg: string) {
+    const now = Date.now();
+    if (now - this.lastRedisWarn > 30000) {
+      this.lastRedisWarn = now;
+      this.logger.warn(msg);
+    }
+  }
+
+  private attachSilentErrorHandler(target: { on: (ev: string, h: (err: any) => void) => unknown }, label: string) {
+    (target as any).on("error", (err: unknown) => {
+      if (this.isSilentRedisError(err)) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.throttledWarn(`[Redis] ${label} error: ${msg}`);
+    });
+  }
+
   async onModuleInit() {
     try {
       this.connection = new IORedis(this.redisUrl, {
+        host: "127.0.0.1",
+        family: 4,
         maxRetriesPerRequest: null,
-        enableOfflineQueue: true,
-        retryStrategy: (times) => Math.min(times * 200, 2000),
+        enableOfflineQueue: false,
+        retryStrategy: () => {
+          this.throttledWarn("[Redis] Connection failed (127.0.0.1) - retrying in 30s...");
+          return 30000;
+        },
+        reconnectOnError: () => false,
         lazyConnect: true,
+        enableReadyCheck: false,
       });
-      this.connection.on("error", (err) => this.logger.warn(`Redis error (will retry): ${err.message}`));
-      this.connection.on("close", () => this.logger.warn("Redis connection closed — retrying"));
+      this.connection.on("error", (err) => {
+        if (this.isSilentRedisError(err)) {
+          this.throttledWarn("[Redis] Connection failed (127.0.0.1) - retrying in 30s...");
+          return;
+        }
+        this.throttledWarn(`[Redis] error: ${(err as Error).message}`);
+      });
+      this.connection.on("close", () => this.throttledWarn("[Redis] Connection failed (127.0.0.1) - retrying in 30s..."));
       const opts = { connection: this.connection };
 
       this.chatQueue = new Queue("chat", opts);
@@ -45,13 +90,23 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       this.indexQueue = new Queue("index", opts);
       this.outgoingQueue = new Queue("outgoing", opts);
       this.scheduler = new QueueEvents("csai-scheduler", opts);
+      this.attachSilentErrorHandler(this.chatQueue as unknown as { on: (ev: string, h: (err: any) => void) => unknown }, "chat");
+      this.attachSilentErrorHandler(this.adQueue as unknown as { on: (ev: string, h: (err: any) => void) => unknown }, "ad");
+      this.attachSilentErrorHandler(this.indexQueue as unknown as { on: (ev: string, h: (err: any) => void) => unknown }, "index");
+      this.attachSilentErrorHandler(this.outgoingQueue as unknown as { on: (ev: string, h: (err: any) => void) => unknown }, "outgoing");
+      this.attachSilentErrorHandler(this.scheduler as unknown as { on: (ev: string, h: (err: any) => void) => unknown }, "scheduler");
       this.scheduler.on("failed", ({ jobId }) => this.logger.warn(`Queue job failed ${jobId}`));
 
       this.logger.log("Redis/BullMQ queues initialized");
     } catch (err) {
+      if (this.isSilentRedisError(err)) {
+        this.throttledWarn("[Redis] Connection failed (127.0.0.1) - retrying in 30s...");
+        this.logger.warn("Dev mode — Redis unavailable, queues disabled gracefully");
+        return;
+      }
       const isDev = (process.env.NODE_ENV || "development") !== "production";
-      this.logger.error("Redis init failed", err instanceof Error ? err.stack : String(err));
-      if (!isDev) throw err;
+      this.logger.warn(`Redis init failed: ${err instanceof Error ? err.message : String(err)}`);
+      if (!isDev) throw err as Error;
       this.logger.warn("Dev mode — Redis unavailable, queues disabled gracefully");
     }
   }

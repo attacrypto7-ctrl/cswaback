@@ -13,6 +13,7 @@
     "dev:api": "npm run dev -w cs-ai-api",
     "dev:worker": "npm run dev -w cs-ai-worker",
     "dev:wa": "npm run dev -w cs-ai-wa-gateway",
+    "predev": "node -e \"try{require('child_process').execSync('docker start redis-local',{stdio:'ignore'})}catch{try{require('child_process').execSync('docker run -d --name redis-local -p 6379:6379 redis:alpine',{stdio:'ignore'})}catch{}}\"",
     "dev": "npm run build:libs && concurrently -k -n api,worker,wa \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:wa\"",
     "start:api": "npm run start -w cs-ai-api",
     "start:worker": "npm run start -w cs-ai-worker",

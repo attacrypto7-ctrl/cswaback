@@ -7,6 +7,16 @@ import * as cors from "cors";
 
 import { AppModule } from "./app.module";
 
+process.on("unhandledRejection", (reason: any) => {
+  if (
+    reason?.code === "ECONNREFUSED" ||
+    reason?.message?.includes("ECONNREFUSED") ||
+    reason?.name === "AggregateError"
+  ) {
+    return;
+  }
+});
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     cors: true,
