@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { Worker } from "bullmq";
 import { Redis as IORedis } from "ioredis";
