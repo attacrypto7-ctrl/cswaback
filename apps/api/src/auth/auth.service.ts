@@ -166,6 +166,7 @@ export class AuthService {
     const redirectUri =
       this.configService.get<string>("googleRedirectUri") ||
       process.env.GOOGLE_REDIRECT_URI ||
+      process.env.GOOGLE_CALLBACK_URL ||
       "http://localhost:3000/api/auth/google/callback";
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -208,28 +209,54 @@ export class AuthService {
       googleProfile.picture ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=10b981&color=fff&size=200`;
 
-    // Cek tenant atau admin
-    let tenant = await this.db.db.query.tenants.findFirst({
-      where: eq(schema.tenants.email, email),
-    });
+    let tenant: typeof schema.tenants.$inferSelect | null = null;
+    try {
+      tenant = await this.db.db.query.tenants.findFirst({
+        where: eq(schema.tenants.email, email),
+      });
+    } catch (err) {
+      this.logger.warn(`Tenant lookup failed for ${email}: ${err instanceof Error ? err.message : String(err)} — attempting upsert`);
+      tenant = null;
+    }
 
     if (!tenant) {
-      // Auto-register tenant baru jika belum ada
-      const [newTenant] = await this.db.db
-        .insert(schema.tenants)
-        .values({
-          nama: name,
-          industri: "Lainnya",
-          email: email,
-          plan: "Starter",
-          status: "aktif",
-        })
-        .returning();
-      tenant = newTenant;
-
-      await this.db.db.insert(schema.botSettings).values({
-        tenantId: tenant.id,
-      });
+      try {
+        const [newTenant] = await this.db.db
+          .insert(schema.tenants)
+          .values({
+            nama: name,
+            industri: "Lainnya",
+            email: email,
+            plan: "Starter",
+            status: "aktif",
+          })
+          .onConflictDoUpdate({
+            target: schema.tenants.email,
+            set: { updatedAt: new Date() },
+          })
+          .returning();
+        tenant = newTenant;
+      } catch (err: any) {
+        const isUniqueViolation = err?.code === "23505" || err?.message?.includes("duplicate") || err?.message?.includes("unique");
+        if (isUniqueViolation) {
+          try {
+            tenant = await this.db.db.query.tenants.findFirst({
+              where: eq(schema.tenants.email, email),
+            });
+          } catch {}
+        }
+        if (!tenant) {
+          this.logger.error(`Tenant upsert failed for ${email}: ${err instanceof Error ? err.message : String(err)}`);
+          throw new UnauthorizedException("Gagal menyiapkan akun. Silakan coba lagi.");
+        }
+      }
+      if (tenant) {
+        try {
+          await this.db.db.insert(schema.botSettings).values({ tenantId: tenant.id }).onConflictDoNothing();
+        } catch (err) {
+          this.logger.warn(`BotSettings init failed for ${tenant.id}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
     }
 
     const payload: JwtPayload = {

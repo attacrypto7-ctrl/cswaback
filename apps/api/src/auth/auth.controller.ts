@@ -17,6 +17,7 @@ export class AuthController {
     const redirectUri =
       this.config.get<string>("googleRedirectUri") ||
       process.env.GOOGLE_REDIRECT_URI ||
+      process.env.GOOGLE_CALLBACK_URL ||
       "http://localhost:3000/api/auth/google/callback";
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
