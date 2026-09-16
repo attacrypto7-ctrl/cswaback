@@ -27,9 +27,16 @@ export function getPool(): Pool {
 export function initDb(databaseUrl: string): NodePgDatabase<typeof schema> {
   if (dbInstance) return dbInstance;
 
+  const isRemoteDb =
+    databaseUrl.includes("supabase") ||
+    databaseUrl.includes("pooler") ||
+    databaseUrl.includes("railway") ||
+    databaseUrl.includes("sslmode=") ||
+    process.env.NODE_ENV === "production";
+
   poolInstance = new Pool({
     connectionString: databaseUrl,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
   });
 
   dbInstance = drizzle(poolInstance, { schema });

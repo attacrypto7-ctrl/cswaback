@@ -22,12 +22,17 @@ export function db() {
   return getDb();
 }
 
-// Klien Groq (satu key untuk seluruh platform — rate-limit per tenant di api)
+// Klien AI (Groq / DeepSeek — satu key untuk seluruh platform — rate-limit per tenant di api)
 let groqClient: GroqClient | null = null;
 export function groq(): GroqClient | null {
-  const key = process.env.GROQ_API_KEY;
+  const key = process.env.AI_API_KEY || process.env.GROQ_API_KEY;
   if (!key) return null;
-  if (!groqClient) groqClient = new GroqClient({ apiKey: key });
+  if (!groqClient) {
+    groqClient = new GroqClient({
+      apiKey: key,
+      baseURL: process.env.AI_BASE_URL,
+    });
+  }
   return groqClient;
 }
 

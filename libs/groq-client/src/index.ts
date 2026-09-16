@@ -11,6 +11,12 @@ export const GROQ_MODELS: Record<string, string> = {
   akurat: "kimi-k2",                    // $1.00 / $3.00 per 1M token
 };
 
+export const DEEPSEEK_MODELS: Record<string, string> = {
+  hemat: "deepseek-chat",
+  seimbang: "deepseek-chat",
+  akurat: "deepseek-chat",
+};
+
 export interface GroqOptions {
   apiKey: string;
   baseURL?: string;
@@ -34,50 +40,93 @@ export interface GroqChatResponse {
 }
 
 // =====================================================================
-// GroqClient — wrapper di sekitar OpenAI SDK yang men-target Groq API
+// GroqClient — wrapper di sekitar OpenAI SDK (mendukung Groq & DeepSeek)
 // =====================================================================
 export class GroqClient {
   private client: OpenAI;
   private apiKey: string;
+  private baseURL: string;
 
   constructor(options: GroqOptions) {
     this.apiKey = options.apiKey;
+    const defaultBaseUrl = options.apiKey?.startsWith("gsk_")
+      ? "https://api.groq.com/openai/v1"
+      : "https://api.deepseek.com";
+
+    this.baseURL = options.baseURL ?? process.env.AI_BASE_URL ?? defaultBaseUrl;
     this.client = new OpenAI({
       apiKey: options.apiKey,
-      baseURL: options.baseURL ?? "https://api.groq.com/openai/v1",
+      baseURL: this.baseURL,
     });
   }
 
   /**
    * Dapatkan model berdasarkan tingkat kepintaran (hemat/seimbang/akurat)
+   * Menyesuaikan apakah provider adalah DeepSeek atau Groq.
    */
   getModelForLevel(level: string): string {
+    if (process.env.AI_MODEL) {
+      return process.env.AI_MODEL;
+    }
+
+    const isDeepSeek =
+      this.baseURL.includes("deepseek") ||
+      (!this.apiKey.startsWith("gsk_") && !this.baseURL.includes("groq"));
+
+    if (isDeepSeek) {
+      return DEEPSEEK_MODELS[level] || DEEPSEEK_MODELS.seimbang;
+    }
+
     return GROQ_MODELS[level] || GROQ_MODELS.seimbang;
   }
 
   /**
-   * Kirim chat completion ke Groq
+   * Kirim chat completion ke provider AI (Groq / DeepSeek / Pateway)
    */
   async chat(request: GroqChatRequest): Promise<GroqChatResponse> {
-    const response = await this.client.chat.completions.create({
+    const payload: any = {
       model: request.model,
       messages: request.messages,
-      temperature: request.temperature ?? 0.7,
       max_tokens: request.maxTokens,
-    });
-
-    const message = response.choices[0]?.message;
-    return {
-      content: message?.content ?? null,
-      model: response.model,
-      usage: response.usage
-        ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          }
-        : undefined,
     };
+    if (request.temperature !== undefined) {
+      payload.temperature = request.temperature;
+    }
+
+    try {
+      const response = await this.client.chat.completions.create(payload);
+      const message = response.choices[0]?.message;
+      return {
+        content: message?.content ?? null,
+        model: response.model,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            }
+          : undefined,
+      };
+    } catch (err: any) {
+      // Jika model tidak mendukung parameter temperature, retry tanpa temperature
+      if (err?.message?.includes("temperature") && payload.temperature !== undefined) {
+        delete payload.temperature;
+        const response = await this.client.chat.completions.create(payload);
+        const message = response.choices[0]?.message;
+        return {
+          content: message?.content ?? null,
+          model: response.model,
+          usage: response.usage
+            ? {
+                promptTokens: response.usage.prompt_tokens,
+                completionTokens: response.usage.completion_tokens,
+                totalTokens: response.usage.total_tokens,
+              }
+            : undefined,
+        };
+      }
+      throw err;
+    }
   }
 
   /**
@@ -101,14 +150,13 @@ export class GroqClient {
   }
 
   /**
-   * Generate embedding — NOTE: Groq tidak sediakan endpoint embeddings!
-   * Gunakan model embedding lokal (lihat @xenova/transformers di worker).
-   * Method ini dificated / throw sehingga pemanggil tahu.
+   * Generate embedding — NOTE: LLM API tidak sediakan endpoint embeddings bawaan!
+   * Gunakan model embedding lokal di worker.
    */
   async embed(): Promise<never> {
     throw new Error(
-      "Groq tidak menyediakan endpoint embeddings. " +
-        "Gunakan EmbeddingService lokal (@xenova/transformers) di worker.",
+      "Provider tidak menyediakan endpoint embeddings. " +
+        "Gunakan EmbeddingService lokal di worker.",
     );
   }
 }
@@ -117,12 +165,13 @@ export class GroqClient {
  * Factory function untuk membuat client dari env
  */
 export function createGroqClient(env: { apiKey: string; baseURL?: string }): GroqClient {
-  if (!env.apiKey) {
-    throw new Error("GROQ_API_KEY tidak ditemukan di environment");
+  const key = env.apiKey || process.env.AI_API_KEY || process.env.GROQ_API_KEY;
+  if (!key) {
+    throw new Error("API Key AI tidak ditemukan di environment (AI_API_KEY atau GROQ_API_KEY)");
   }
   return new GroqClient({
-    apiKey: env.apiKey,
-    baseURL: env.baseURL,
+    apiKey: key,
+    baseURL: env.baseURL || process.env.AI_BASE_URL,
   });
 }
 

@@ -209,11 +209,11 @@ export class AuthService {
       googleProfile.picture ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=10b981&color=fff&size=200`;
 
-    let tenant: typeof schema.tenants.$inferSelect | null = null;
+    let tenant: typeof schema.tenants.$inferSelect | null | undefined = null;
     try {
-      tenant = await this.db.db.query.tenants.findFirst({
+      tenant = (await this.db.db.query.tenants.findFirst({
         where: eq(schema.tenants.email, email),
-      });
+      })) ?? null;
     } catch (err) {
       this.logger.warn(`Tenant lookup failed for ${email}: ${err instanceof Error ? err.message : String(err)} — attempting upsert`);
       tenant = null;
@@ -240,9 +240,9 @@ export class AuthService {
         const isUniqueViolation = err?.code === "23505" || err?.message?.includes("duplicate") || err?.message?.includes("unique");
         if (isUniqueViolation) {
           try {
-            tenant = await this.db.db.query.tenants.findFirst({
+            tenant = (await this.db.db.query.tenants.findFirst({
               where: eq(schema.tenants.email, email),
-            });
+            })) ?? null;
           } catch {}
         }
         if (!tenant) {

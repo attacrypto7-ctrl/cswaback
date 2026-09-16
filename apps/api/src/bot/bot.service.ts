@@ -65,13 +65,14 @@ export class BotService {
     const faqMatch = await this.matchFaq(tenantId, pesan);
     if (faqMatch) return faqMatch;
 
-    // Fallback Groq (RAG penuh dikerjakan worker; di trial cukup prompt sederhana)
-    const groqKey = this.configService.get<string>("groqApiKey");
-    if (groqKey) {
+    // Fallback AI (RAG penuh dikerjakan worker; di trial cukup prompt sederhana)
+    const apiKey = this.configService.get<string>("aiApiKey") || this.configService.get<string>("groqApiKey");
+    const aiBaseUrl = this.configService.get<string>("aiBaseUrl");
+    if (apiKey) {
       try {
         const { GroqClient } = await import("@cs-ai/groq-client");
         const settings = await this.getSettings(tenantId);
-        const client = new GroqClient({ apiKey: groqKey });
+        const client = new GroqClient({ apiKey, baseURL: aiBaseUrl || undefined });
         const res = await client.simpleChat(
           client.getModelForLevel(settings.tingkatKepintaran),
           `Kamu asisten toko "${settings.namaBot ?? "CS"}". Gaya: ${settings.gayaBahasa ?? "sopan, Bahasa Indonesia"}. Jawab maksimal 3 kalimat. Jika tidak tahu, katakan akan dicek admin — jangan mengarang.`,
@@ -82,7 +83,7 @@ export class BotService {
           return { jawaban: res.content, sumber: `AI (${settings.tingkatKepintaran})`, keyakinan: 0.75 };
         }
       } catch (err) {
-        this.logger.warn(`Groq trial gagal: ${(err as Error).message}`);
+        this.logger.warn(`AI trial gagal: ${(err as Error).message}`);
       }
     }
     return {
