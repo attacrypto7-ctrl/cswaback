@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 
 import { AppModule } from "./app.module";
 
@@ -31,6 +32,7 @@ async function bootstrap() {
 
   // Security headers
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  app.use(cookieParser());
 
   // Global validation pipe — otomatis validate DTOs dengan class-validator
   app.useGlobalPipes(

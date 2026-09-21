@@ -35,6 +35,8 @@
     "esbuild@0.28.2": true
   },
   "dependencies": {
-    "@react-oauth/google": "^0.13.5"
+    "@react-oauth/google": "^0.13.5",
+    "@types/cookie-parser": "^1.4.10",
+    "cookie-parser": "^1.4.7"
   }
 }
