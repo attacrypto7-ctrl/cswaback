@@ -21,6 +21,7 @@ import { AppService } from "./app.service";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [".env", "../../.env", "../.env"],
       load: [configuration],
     }),
     CommonModule,

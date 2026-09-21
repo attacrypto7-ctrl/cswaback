@@ -1,27 +1,16 @@
-# Railway: satu Project (cs-ai-saas), deploy 3 service dari repo monorepo ini.
-# Atur per service di dashboard Railway (Settings → Source → Root Directory
-# + Build/Start Command). File ini hanya dokumentasi — Railway tidak membaca
-# file ini otomatis untuk multi-service.
+# Railway monorepo config — Backend (NestJS API)
+# Set di Railway Dashboard:
+#   Root Directory  → back
+#   Build Command   → (pakai yang di bawah)
+#   Start Command   → (pakai yang di bawah)
 
-[service.api]
-rootDirectory = "backend/apps/api"
-buildCommand = "npm install && npm run build"
-startCommand = "npm run start"
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npm run build:libs && npm run build -w cs-ai-api"
+
+[deploy]
+startCommand = "npm run start:api"
 healthcheckPath = "/api"
-# Variables: DATABASE_URL, REDIS_URL, GROQ_API_KEY, JWT_SECRET,
-#             ENCRYPTION_KEY, INTERNAL_SECRET, INTERNAL_API_URL
-
-[service.worker]
-rootDirectory = "backend/apps/worker"
-buildCommand = "npm install && npm run build"
-startCommand = "npm run start"
-# Variables: DATABASE_URL, REDIS_URL, GROQ_API_KEY, INTERNAL_SECRET,
-#             INTERNAL_API_URL (tanpa PORT publik)
-
-[service.wa-gateway]
-rootDirectory = "backend/apps/wa-gateway"
-buildCommand = "npm install && npm run build"
-startCommand = "npm run start"
-# Variables: REDIS_URL, INTERNAL_SECRET, INTERNAL_API_URL,
-#             WA_SESSION_VOLUME_PATH=/data/wa-sessions
-# Volumes: mount /data/wa-sessions (persistent)
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
