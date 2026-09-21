@@ -263,7 +263,7 @@ function Landing() {
 									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label, {
 										htmlFor: "email",
 										className: "text-xs text-muted-foreground",
-										children: "Email atau Nomor Telepon Google"
+										children: "Email"
 									}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
 										id: "email",
 										type: "text",
